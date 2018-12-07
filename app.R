@@ -55,7 +55,7 @@ server <- function(input, output) {
         by_topics <- as.data.frame("There is no topic related to your input, try again!")
       }
     }
-    else {
+    else if (input$search == "" | is.null(input$search)){
       by_topics <- activities
       by_topics <- by_topic [!duplicated(by_topic$MPID),]
       by_topics <- topic_func(by_topics)
