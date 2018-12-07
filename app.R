@@ -3,9 +3,10 @@ library (shiny)
 library (shinythemes)
 library (shinyLP)
 library (data.table)
+library (plyr)
 library (tidyverse)
 library (xtable)
-library (plyr)
+
 
 openhluttaw <- as.data.frame(read.csv("personId.csv", header = T)[,1:2])
 mp_terms  <- as.matrix(read.csv("mp_terms.csv", header = T))
