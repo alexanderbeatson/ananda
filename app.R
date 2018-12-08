@@ -53,7 +53,7 @@ server <- function(input, output) {
         by_topics <- arrange (by_topics, desc(by_topics$ranks))
         by_topics <- topic_func(by_topics)
       } else {
-        by_topics <- as.data.frame("There is no topic related to your input, try again!")
+        by_topics <- data.frame(result = "There is no topic related to your input, try again!")
       }
     }
     else {
