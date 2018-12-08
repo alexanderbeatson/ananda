@@ -58,7 +58,7 @@ server <- function(input, output) {
     }
     else if (input$search == "" | is.null(input$search)){
       by_topics <- activities
-      by_topics <- by_topic [!duplicated(by_topic$MPID),]
+      by_topics <- by_topics [!duplicated(by_topics$MPID),]
       by_topics <- topic_func(by_topics)
     }
     
