@@ -12,6 +12,16 @@ openhluttaw <- as.data.frame(read.csv("personId.csv", header = T)[,1:2])
 mp_terms  <- as.matrix(read.csv("mp_terms.csv", header = T))
 mp_prob <- as.data.frame (read.csv("mp_prob.csv", header = T))
 activities <- as.data.frame(read.csv("activities.csv", header = T))
+recordLogs <- as.data.frame(read.csv ("logsRecord.csv"), header = T)
+sessionNo <- RecordLogs$session %>% as.numeric(tail(1))+1
+topic_func <- function (x) {
+  x <- join (x, openhluttaw)
+  x <- subset(x, select = c(Name, Constituency, Party, person_id))
+  x$person_id <- paste0('http://openhluttaw.info/en_US/person-detail/?personId=', x$person_id)
+  x$person_id <- paste0('<a href="',x$person_id,'">',"Make a Call","</a>")
+  names(x) [4] <- "Contact"
+  return(x)
+}
 
 ui <- fluidPage(theme = shinytheme("flatly"),
                 titlePanel("Find Your Guy in Hluttaw!"),
@@ -21,17 +31,11 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                 tableOutput("mp_table")
 )
 
-server <- function(input, output) {
+server <- function(input, output, session) {
+  
   
   output$mp_table <- renderTable({
-    topic_func <- function (x) {
-      x <- join (x, openhluttaw)
-      x <- subset(x, select = c(Name, Constituency, Party, person_id))
-      x$person_id <- paste0('http://openhluttaw.info/en_US/person-detail/?personId=', x$person_id)
-      x$person_id <- paste0('<a href="',x$person_id,'">',"Make a Call","</a>")
-      names(x) [4] <- "Contact"
-      return(x)
-    }
+    
     if (input$search != "") {
       InputWordsLocation <- str_locate_all(str_to_lower(input$search), "[a-z,0-9]+") [[1]]
       InputWords <- str_sub(input$search, InputWordsLocation[,"start"], InputWordsLocation [,"end"])
@@ -61,9 +65,12 @@ server <- function(input, output) {
       by_topics <- by_topics [!duplicated(by_topics$MPID),]
       by_topics <- topic_func(by_topics)
     }
+    logsRecord <- data.frame(session = sessionNo, time = Sys.time(), input = paste(InputWords,collapse = " "))
+    write.table (logsRecord, "logsRecord.csv", row.names = F, append = T, col.names = F, sep = ",")
     
     xtable(by_topics, caption = "MPs who're most interested in the topic", escape = F)
   }, sanitize.text.function = function(x) x)
+  
 }
 
 shinyApp(ui = ui, server = server)
