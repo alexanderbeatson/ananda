@@ -13,7 +13,7 @@ mp_terms  <- as.matrix(read.csv("mp_terms.csv", header = T))
 mp_prob <- as.data.frame (read.csv("mp_prob.csv", header = T))
 activities <- as.data.frame(read.csv("activities.csv", header = T))
 recordLogs <- as.data.frame(read.csv ("logsRecord.csv"), header = T)
-sessionNo <- RecordLogs$session %>% as.numeric(tail(1))+1
+
 topic_func <- function (x) {
   x <- join (x, openhluttaw)
   x <- subset(x, select = c(Name, Constituency, Party, person_id))
@@ -31,8 +31,8 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                 tableOutput("mp_table")
 )
 
-server <- function(input, output, session) {
-  
+server <- function(input, output) {
+  sessionNo <- recordLogs$session %>% as.numeric(tail(1))+1
   
   output$mp_table <- renderTable({
     
@@ -59,15 +59,14 @@ server <- function(input, output, session) {
       } else {
         by_topics <- data.frame(result = "There is no topic related to your input, try again!")
       }
+      logsRecord <- data.frame(session = sessionNo, time = Sys.time(), input = paste(InputWords,collapse = " "))
+      write.table (logsRecord, "logsRecord.csv", row.names = F, append = T, col.names = F, sep = ",")
     }
     else {
       by_topics <- activities
       by_topics <- by_topics [!duplicated(by_topics$MPID),]
       by_topics <- topic_func(by_topics)
     }
-    logsRecord <- data.frame(session = sessionNo, time = Sys.time(), input = paste(InputWords,collapse = " "))
-    write.table (logsRecord, "logsRecord.csv", row.names = F, append = T, col.names = F, sep = ",")
-    
     xtable(by_topics, caption = "MPs who're most interested in the topic", escape = F)
   }, sanitize.text.function = function(x) x)
   
