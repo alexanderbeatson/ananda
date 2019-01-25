@@ -6,13 +6,14 @@ library (data.table)
 library (plyr)
 library (tidyverse)
 library (xtable)
+library (RTextTools)
+library (reshape2)
 
 
-openhluttaw <- as.data.frame(read.csv("personId.csv", header = T)[,1:2])
-mp_terms  <- as.matrix(read.csv("mp_terms.csv", header = T))
-mp_prob <- as.data.frame (read.csv("mp_prob.csv", header = T))
-activities <- as.data.frame(read.csv("activities.csv", header = T))
+mp_id <- as.data.frame(read.csv("personId.csv", header = T)[,1:2])
+mp_table <- readRDS("mp_table.rds")
 recordLogs <- as.data.frame(read.csv ("logsRecord.csv"), header = T)
+mp_lda <- readRDS("mp_lda.rds")
 
 topic_func <- function (x) {
   x <- join (x, openhluttaw)
@@ -20,6 +21,7 @@ topic_func <- function (x) {
   x$person_id <- paste0('http://openhluttaw.info/en_US/person-detail/?personId=', x$person_id)
   x$person_id <- paste0('<a href="',x$person_id,'">',"Make a Call","</a>")
   names(x) [4] <- "Contact"
+  x <- x %>% head (20)
   return(x)
 }
 
@@ -39,23 +41,25 @@ server <- function(input, output) {
     if (input$search != "") {
       InputWordsLocation <- str_locate_all(str_to_lower(input$search), "[a-z,0-9]+") [[1]]
       InputWords <- str_sub(input$search, InputWordsLocation[,"start"], InputWordsLocation [,"end"])
-      logicalDF <- matrix (mp_terms %in% InputWords, ncol = 21, byrow = F)
-      if (any(logicalDF)) {
-        topicselect <- which(apply (logicalDF, MARGIN = 2, any) == T)
-        multiplyer <- apply (logicalDF [,topicselect,drop = F], MARGIN = 2, sum)
-        if (length (topicselect) > 2) {
-          prob_topic <- sweep (mp_prob [,topicselect], MARGIN = 2, multiplyer, "*")/sum(multiplyer)
+      InputStem <- wordStem(InputWords)
+      matched_inputWords <- which(mp_lda@terms %in% InputStem == T) #Use 'which' for the sake of computation time
+      if (any(matched_inputWords)) {
+        if (length(matched_inputWords) > 1) {
+          beta_weight <- rowSums(mp_lda@beta[,matched_inputWords])
         } else {
-          prob_topic <- data.frame ((mp_prob [,topicselect]*multiplyer)/sum(multiplyer))
-          colnames(prob_topic) <- colnames(mp_prob) [topicselect]
+          beta_weight <- mp_lda@beta[,matched_inputWords]
         }
-        rank_topic <- rowSums(prob_topic)/ncol (prob_topic)
-        concept <- data.frame(cbind(ranks = rank_topic, Ref.No = c(1:995,997:1167)))
-        by_topics <- join (activities,concept)
-        by_topics <- by_topics %>% group_by(MPID) %>% filter (ranks == max(ranks)) %>% ungroup()
-        by_topics <- by_topics [!duplicated(by_topics$MPID),]
-        by_topics <- arrange (by_topics, desc(by_topics$ranks))
-        by_topics <- topic_func(by_topics)
+        topic_rank <- factor (c(1:mp_lda@k), c(1:mp_lda@k)[order(beta_weight, decreasing = T)])
+        gamma_topics <- cbind(setNames(data.frame(mp_lda@gamma), 1:mp_lda@k), docs = 1:mp_lda@wordassignments$nrow)
+        gamma_topics <- setNames(melt(gamma_topics, id.vars = "docs"), c("docs", "topics", "rank"))
+        gamma_topics$topics <- factor (gamma_topics$topics, levels(topic_rank))
+        gamma_topics <- gamma_topics %>% arrange (topics, desc(rank))
+        
+        by_topics <- right_join(mp_table,gamma_topics) 
+        by_topics <- by_topics %>% arrange (topics, desc(rank))
+        by_topics <- by_topics[!duplicated(by_topics$MPID),] #remove duplicated only AFTER arranging, or may cause information loss.
+        by_topics <- topic_func (by_topics)
+        
       } else {
         by_topics <- data.frame(result = "There is no topic related to your input, try again!")
       }
@@ -63,7 +67,7 @@ server <- function(input, output) {
       write.table (logsRecord, "logsRecord.csv", row.names = F, append = T, col.names = F, sep = ",")
     }
     else {
-      by_topics <- activities
+      by_topics <- mp_table 
       by_topics <- by_topics [!duplicated(by_topics$MPID),]
       by_topics <- topic_func(by_topics)
     }
