@@ -14,14 +14,15 @@ mp_id <- as.data.frame(read.csv("personId.csv", header = T)[,1:2])
 mp_table <- readRDS("mp_table.rds")
 recordLogs <- as.data.frame(read.csv ("logsRecord.csv"), header = T)
 mp_lda <- readRDS("mp_lda.rds")
+dw <- readRDS("dw.rds")
 
-topic_func <- function (x) {
-  x <- join (x, openhluttaw)
+topic_func <- function (x,y) {
+  x <- join (x, mp_id )
   x <- subset(x, select = c(Name, Constituency, Party, person_id))
   x$person_id <- paste0('http://openhluttaw.info/en_US/person-detail/?personId=', x$person_id)
   x$person_id <- paste0('<a href="',x$person_id,'">',"Make a Call","</a>")
   names(x) [4] <- "Contact"
-  x <- x %>% head (20)
+  x <- x %>% head (y)
   return(x)
 }
 
@@ -29,6 +30,7 @@ ui <- fluidPage(theme = shinytheme("flatly"),
                 titlePanel("Find Your Guy in Hluttaw!"),
                 br(),
                 textInput("search", "By Your Interest", placeholder = "Topics"),
+                selectInput ("Num", "Number of top champion", choices = list("Top 10" = 10, "Top 15" = 15, "Top 20" = 20, "Top 25" = 25, "Top 30" = 30, "Top 35" = 35, "Top 40" = 40), selected = 20),
                 br(),
                 tableOutput("mp_table")
 )
@@ -43,7 +45,7 @@ server <- function(input, output) {
       InputWords <- str_sub(input$search, InputWordsLocation[,"start"], InputWordsLocation [,"end"])
       InputStem <- wordStem(InputWords)
       matched_inputWords <- which(mp_lda@terms %in% InputStem == T) #Use 'which' for the sake of computation time
-      if (any(matched_inputWords)) {
+      if (any(matched_inputWords) && any (dw %in% InputStem)) {
         if (length(matched_inputWords) > 1) {
           beta_weight <- rowSums(mp_lda@beta[,matched_inputWords])
         } else {
@@ -58,7 +60,7 @@ server <- function(input, output) {
         by_topics <- right_join(mp_table,gamma_topics) 
         by_topics <- by_topics %>% arrange (topics, desc(rank))
         by_topics <- by_topics[!duplicated(by_topics$MPID),] #remove duplicated only AFTER arranging, or may cause information loss.
-        by_topics <- topic_func (by_topics)
+        by_topics <- topic_func (by_topics, input$Num)
         
       } else {
         by_topics <- data.frame(result = "There is no topic related to your input, try again!")
@@ -69,7 +71,7 @@ server <- function(input, output) {
     else {
       by_topics <- mp_table 
       by_topics <- by_topics [!duplicated(by_topics$MPID),]
-      by_topics <- topic_func(by_topics)
+      by_topics <- topic_func(by_topics, input$Num)
     }
     xtable(by_topics, caption = "MPs who're most interested in the topic", escape = F)
   }, sanitize.text.function = function(x) x)
