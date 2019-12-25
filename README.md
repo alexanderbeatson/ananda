@@ -68,6 +68,7 @@ algorithms are used to determine the numbers of topics.
 
 > > topic\_modeling.pdf : Full documentation of the project
 > > topic\_number.png : Topic numbers plot
+> > wq_wtp.png : dot product of wq and wtp
 
 #### License
 
