@@ -72,7 +72,7 @@ algorithms are used to determine the numbers of topics.
 
 #### License
 
-[MIT license](https://opensource.org/licenses/MIT)
+[MIT license](https://github.com/alexanderbeatson/anandaTopicModeling/blob/master/LICENSE)
 
 #### Contributers
 
